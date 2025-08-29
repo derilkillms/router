@@ -1,0 +1,21 @@
+{
+  "name": "derilkillms/router",
+  "description": "Simple route wrapper for PHP",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Derilkillms\\Helper\\": "src/"
+    }
+  },
+   "authors": [
+        {
+            "name": "Muhammad Deril",
+            "email": "derilkillms@gmail.com"
+        }
+    ],
+  "minimum-stability": "stable",
+  "require": {
+    "php": ">=7.4"
+  }
+}
