@@ -5,7 +5,6 @@
  * Github   : @derilkillms
  */
 
-
 namespace Derilkillms\Helper;
 
 class Router {
@@ -13,82 +12,123 @@ class Router {
     protected $middlewares = [];
     protected $notFoundHandler;
 
-    // Menambahkan route
+    /**
+     * Normalisasi path agar konsisten
+     */
+    protected function normalizePath(string $path): string {
+        $path = preg_replace('#/+#', '/', $path);   // ganti banyak slash jadi satu
+        $path = '/' . trim($path, '/');             // pastikan ada leading slash
+        return $path === '/' ? '/' : rtrim($path, '/'); // hilangkan trailing slash kecuali root
+    }
+
+    /**
+     * Daftarkan route
+     */
     public function add(string $method, string $path, callable $handler) {
         $method = strtoupper($method);
-        $path = trim($path, '/');
+        $path = $this->normalizePath($path);
         $this->routes[$method][$path] = $handler;
     }
 
-    // Menambahkan middleware global (dijalankan sebelum route handler)
+    /**
+     * Shortcut HTTP methods
+     */
+    public function get(string $path, callable $handler)    { $this->add('GET', $path, $handler); }
+    public function post(string $path, callable $handler)   { $this->add('POST', $path, $handler); }
+    public function put(string $path, callable $handler)    { $this->add('PUT', $path, $handler); }
+    public function delete(string $path, callable $handler) { $this->add('DELETE', $path, $handler); }
+    public function patch(string $path, callable $handler)  { $this->add('PATCH', $path, $handler); }
+    public function options(string $path, callable $handler){ $this->add('OPTIONS', $path, $handler); }
+
+    /**
+     * Middleware global
+     */
     public function addMiddleware(callable $middleware) {
         $this->middlewares[] = $middleware;
     }
 
-    // Set handler untuk 404
+    /**
+     * Handler 404
+     */
     public function setNotFoundHandler(callable $handler) {
         $this->notFoundHandler = $handler;
     }
 
-    // Menjalankan router
+    /**
+     * Ambil URI request dengan base path dibersihkan
+     */
+    protected function getRequestUri(): string {
+        $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+        // hilangkan index.php
+        $uri = preg_replace('#/index\.php#', '', $uri);
+
+        // hapus base folder (jika aplikasi ada di subfolder)
+        $scriptName = dirname($_SERVER['SCRIPT_NAME']);
+        if ($scriptName !== '/' && strpos($uri, $scriptName) === 0) {
+            $uri = substr($uri, strlen($scriptName));
+        }
+
+        return $this->normalizePath($uri);
+    }
+
+    /**
+     * Jalankan router
+     */
     public function run() {
-        $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $requestMethod = $_SERVER['REQUEST_METHOD'];
-
-        // Hilangkan index.php jika ada
-        $requestUri = preg_replace('#/index\.php#', '', $requestUri);
-        $requestUri = trim($requestUri, '/');
-
+        $requestUri    = $this->getRequestUri();
+        $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         $routesForMethod = $this->routes[$requestMethod] ?? [];
 
         foreach ($routesForMethod as $routePath => $handler) {
-            $routeParts = explode('/', $routePath);
-            $uriParts = explode('/', $requestUri);
+            $routeParts = explode('/', trim($routePath, '/'));
+            $uriParts   = explode('/', trim($requestUri, '/'));
 
-            // Jika jumlah segment URI kurang dari route, skip
-            if (count($uriParts) < count($routeParts)) {
+            // Khusus root
+            if ($routePath === '/' && $requestUri === '/') {
+                return $this->executeHandler($handler, []);
+            }
+
+            if (count($uriParts) !== count($routeParts)) {
                 continue;
             }
 
-            $params = [];
+            $params  = [];
             $matched = true;
 
             foreach ($routeParts as $i => $part) {
                 if (preg_match('/^{(\w+)}$/', $part, $matches)) {
-                    // Parameter dinamis
-                    $paramName = $matches[1];
-                    $params[$paramName] = $uriParts[$i] ?? null;
-                } else {
-                    // Segment harus sama persis
-                    if (($uriParts[$i] ?? null) !== $part) {
-                        $matched = false;
-                        break;
-                    }
+                    $params[$matches[1]] = $uriParts[$i] ?? null;
+                } elseif (($uriParts[$i] ?? null) !== $part) {
+                    $matched = false;
+                    break;
                 }
             }
 
             if ($matched) {
-                // Jalankan middleware
-                foreach ($this->middlewares as $middleware) {
-                    $result = $middleware();
-                    if ($result === false) {
-                        // Middleware menghentikan eksekusi route
-                        return;
-                    }
-                }
-
-                // Panggil handler dengan parameter
-                call_user_func_array($handler, $params);
-                return;
+                return $this->executeHandler($handler, $params);
             }
         }
 
-        // Jika tidak ada route cocok, jalankan handler 404 jika ada
+        // 404 jika tidak ada match
         if ($this->notFoundHandler) {
             call_user_func($this->notFoundHandler);
         } else {
             header("HTTP/1.0 404 Not Found");
             echo "404 Not Found";
         }
+    }
+
+    /**
+     * Jalankan middleware + handler
+     */
+    protected function executeHandler(callable $handler, array $params) {
+        foreach ($this->middlewares as $middleware) {
+            $result = $middleware();
+            if ($result === false) {
+                return;
+            }
+        }
+        call_user_func_array($handler, $params);
     }
 }
