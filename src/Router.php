@@ -1,7 +1,7 @@
 <?php
 /**
  * Author   : Muhammad Deril
- * URI      : http://www.derillab.com
+ * URI      : https://www.nexjson.com/
  * Github   : @derilkillms
  */
 
