@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Author   : Muhammad Deril
  * URI      : https://www.nexjson.com/
@@ -7,7 +8,8 @@
 
 namespace Derilkillms\Helper;
 
-class Router {
+class Router
+{
     protected $routes = [];
     protected $middlewares = [];
     protected $notFoundHandler;
@@ -15,7 +17,8 @@ class Router {
     /**
      * Normalisasi path agar konsisten
      */
-    protected function normalizePath(string $path): string {
+    protected function normalizePath(string $path): string
+    {
         $path = preg_replace('#/+#', '/', $path);   // ganti banyak slash jadi satu
         $path = '/' . trim($path, '/');             // pastikan ada leading slash
         return $path === '/' ? '/' : rtrim($path, '/'); // hilangkan trailing slash kecuali root
@@ -24,7 +27,8 @@ class Router {
     /**
      * Daftarkan route
      */
-    public function add(string $method, string $path, callable $handler) {
+    public function add(string $method, string $path, callable $handler)
+    {
         $method = strtoupper($method);
         $path = $this->normalizePath($path);
         $this->routes[$method][$path] = $handler;
@@ -33,31 +37,65 @@ class Router {
     /**
      * Shortcut HTTP methods
      */
-    public function get(string $path, callable $handler)    { $this->add('GET', $path, $handler); }
-    public function post(string $path, callable $handler)   { $this->add('POST', $path, $handler); }
-    public function put(string $path, callable $handler)    { $this->add('PUT', $path, $handler); }
-    public function delete(string $path, callable $handler) { $this->add('DELETE', $path, $handler); }
-    public function patch(string $path, callable $handler)  { $this->add('PATCH', $path, $handler); }
-    public function options(string $path, callable $handler){ $this->add('OPTIONS', $path, $handler); }
-
+    public function get(string $path, callable $handler)
+    {
+        $this->add('GET', $path, $handler);
+    }
+    public function post(string $path, callable $handler)
+    {
+        $this->add('POST', $path, $handler);
+    }
+    public function put(string $path, callable $handler)
+    {
+        $this->add('PUT', $path, $handler);
+    }
+    public function delete(string $path, callable $handler)
+    {
+        $this->add('DELETE', $path, $handler);
+    }
+    public function patch(string $path, callable $handler)
+    {
+        $this->add('PATCH', $path, $handler);
+    }
+    public function options(string $path, callable $handler)
+    {
+        $this->add('OPTIONS', $path, $handler);
+    }
+     public function post_get(string $path, callable $handler)
+    {
+        $methods = ['GET', 'POST'];
+        foreach ($methods as $method) {
+            $this->add($method, $path, $handler);
+        }
+    }
+    public function any(string $path, callable $handler)
+    {
+        $methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'];
+        foreach ($methods as $method) {
+            $this->add($method, $path, $handler);
+        }
+    }
     /**
      * Middleware global
      */
-    public function addMiddleware(callable $middleware) {
+    public function addMiddleware(callable $middleware)
+    {
         $this->middlewares[] = $middleware;
     }
 
     /**
      * Handler 404
      */
-    public function setNotFoundHandler(callable $handler) {
+    public function setNotFoundHandler(callable $handler)
+    {
         $this->notFoundHandler = $handler;
     }
 
     /**
      * Ambil URI request dengan base path dibersihkan
      */
-    protected function getRequestUri(): string {
+    protected function getRequestUri(): string
+    {
         $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
         // hilangkan index.php
@@ -75,7 +113,8 @@ class Router {
     /**
      * Jalankan router
      */
-    public function run() {
+    public function run()
+    {
         $requestUri    = $this->getRequestUri();
         $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         $routesForMethod = $this->routes[$requestMethod] ?? [];
@@ -122,7 +161,8 @@ class Router {
     /**
      * Jalankan middleware + handler
      */
-    protected function executeHandler(callable $handler, array $params) {
+    protected function executeHandler(callable $handler, array $params)
+    {
         foreach ($this->middlewares as $middleware) {
             $result = $middleware();
             if ($result === false) {
